@@ -5,7 +5,7 @@
 #                                                                                           #
 # requires blastn & formatdb & cd-hit-est, all in path                                      #              
 #                                                                                           #
-# v 1.4, added additional specificity to cd-hit-est                                         #                                                                  
+# v 1.5, fixed error in how $perMatch overlap was set                                       #               
 # written by Sonal Singhal, sonal [dot] singhal 1 [at] gmail [dot] com, 23 Jan 2013         #
 #############################################################################################
 
@@ -20,7 +20,7 @@ my $errorFile = 'JP1428_notcovered.out';
 
 my $cluster = 0.99; #how much should you cluster the targets and assemblies at the get go
 my $maxOverlap = 0.5; #how much overlap is allowed between adjoining assembled contigs mapping to the same target
-my $perMatch = 0.80; #how similar does the assembled contig have to be to the target
+my $perMatch = 80; #how similar does the assembled contig have to be to the target (note this is out of 100)
 my $eval = 1e-10; #used in the initial BLAST step
 
 open(SEQ, ">$finalSeq");
