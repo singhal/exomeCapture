@@ -41,23 +41,18 @@ open(IN, "<$out");
 while (<IN>) {
 	chomp(my $line = $_);
 	my @d = split(/\t/,$line);
-	push(@{$tmp{$d[0]}},\@d);
+	push(@{$tmp{$d[0]}},\@d) if $d[2] >= $perMatch;
 	}
 close(IN);
 
 my %matches;
-foreach my $id (keys %tmp) {
-	for (my $i = 0; $i < scalar(@{$tmp{$id}}); $i++) {
-		if ($tmp{$id}[$i][2] < $perMatch) {
-			splice(@{$tmp{$id}}, $i, 1);
-			}
-		}	
-	my $mArray = removeOverlap1($tmp{$id});
-	my @mArray = @{$mArray};
-	for (my $i = 0; $i < scalar(@mArray); $i++) {
-		push(@{$matches{$mArray[$i][1]}}, \@{$mArray[$i]});
-		}
-	}	
+foreach my $id (keys %tmp) {	
+    my $mArray = removeOverlap1($tmp{$id});
+    my @mArray = @{$mArray};
+    for (my $i = 0; $i < scalar(@mArray); $i++) {
+	push(@{$matches{$mArray[$i][1]}}, \@{$mArray[$i]});
+	}
+    }	
 undef %tmp;	
 			
 foreach my $id (keys %matches) {
