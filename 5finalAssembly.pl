@@ -43,14 +43,26 @@ foreach my $assembly (@assembly) {
 	#then take clustered contigs and do blat 2x at 98%
 	my $cl98a = clusterBlat($cl99b,'.cl98a');
 	my $cl98b = clusterBlat($cl98a,'.cl98b');
-	
+
+	my $clustered = $cl98b . ".clustered";
+	cluster($cl98b,$clustered);
+
 	my $final = $assembly . ".final";
-	my $call2 = system("cp $cl98b $final");
+	my $call2 = system("cp $clustered $final");
 	}
 		
 ###########################
 # behold the subroutines  #
 ###########################	
+
+sub cluster {
+	my ($assembly,$out) = @_;
+	my $tmp = 'tmp'
+	my $call1 = system("cd-hit-est -i $assembly -o $tmp -c 0.99 -l $minLength -M $mem -r 1 -B 1");
+	rename($tmp,$out);
+	my $call2 = system("rm $tmp" . "*");
+	}	
+
 	
 sub clusterBlat {
     my ($seq,$index) = @_;

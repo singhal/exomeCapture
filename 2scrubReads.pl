@@ -14,7 +14,7 @@ use strict;
 #assumes HiSeq reads; will work with MiSeq with a small modification.
 
 #directory with all read files
-my $homedir = '/home/singhal/introgression2/';
+my $homedir = '/home/singhal/introgression/';
 #this file has a list of the indexed adaptor OR primer sequences for my library, as fasta format, with each sequence named INDEXNUM_whatever.
 my $adaptorFile = $homedir . 'genomes/adaptorSeqs.fa';
 #this file has information about the libraries, here the first column has the library names and the second column has the adaptor name the third column has the species name
@@ -29,8 +29,8 @@ my $trimmomatic = '/home/singhal/bin/trimmomatic-0.22.jar';
 my $cutadapt = '/home/singhal/cutadapt-1.2.1/bin/cutadapt';
 my $flash = 'flash';
 my $cope = 'cope';
-my $global_nw = 'nw';
 my $bowtie = 'bowtie2';
+my $flashslow =  'flash_slower';
 
 my $readLength = 100;
 my $nper = 0.6; #will get rid of reads for which more than $nper of bases are NNs
@@ -388,292 +388,23 @@ sub reallyMergeReads {
 	
 	my %reads =  %{$reads};	
 	my $newread1 = $orig->{'1'} . '_' . $base1 . '_p1';
-    my $newread2 = $orig->{'2'} . '_' .$base1 .'_p2';
-    my $newreadu = $orig->{'1'} . '_' .$base1 .'_u';
+    	my $newread2 = $orig->{'2'} . '_' .$base1 .'_p2';
+    	my $newreadu = $orig->{'1'} . '_' .$base1 .'_u';
 	my $call1 = system("cope -a $reads{'1'} -b $reads{'2'} -o $lib\.copemerged -2 $newread1 -3 $newread2 -m 0 -l 5 -c 0.9");
 
 	my $newerread1 = $orig->{'1'} . '_' . $base2 . '_p1';
-    my $newerread2 = $orig->{'2'} . '_' .$base2 .'_p2';
-    my $newerreadu = $orig->{'1'} . '_' .$base2 .'_u';
-    my %newerreads = ('1' => $newerread1,'2' => $newerread2, 'u' => $newerreadu);
+    	my $newerread2 = $orig->{'2'} . '_' .$base2 .'_p2';
+    	my $newerreadu = $orig->{'1'} . '_' .$base2 .'_u';
+    	my %newerreads = ('1' => $newerread1,'2' => $newerread2, 'u' => $newerreadu);
 
-	open(OUT1, ">$newerread1");
-	open(OUT2, ">$newerread2");
-	open(OUTU, ">$lib\.slowmerge");
-	open(IN1, "<$newread1");
-	open(IN2, "<$newread2");
-
-	while(<IN1>) {
-    	chomp(my $id1 = $_);
-    	chomp(my $seq1 = <IN1>); my $qualid1 = <IN1>; chomp(my $qual1 = <IN1>);
-    	chomp(my $id2 = <IN2>); chomp(my $seq2 = <IN2>); my $qualid2 = <IN2>; chomp(my $qual2 = <IN2>);
-
-    	my ($s1,$s2,$q1,$q2,$s2rc,$q2rc);
-    	
-    	$q2rc = reverse($qual2);
-    	$s2rc = reverse($seq2);
-    	$s2rc =~ tr/ATGCatgc/TACGtacg/;
-
-    	if (length($seq1) < length($seq2)) {
-			$s1 = $seq1; $s2 = $s2rc; $q1 = $qual1; $q2 = $q2rc;
-    		}
-    	else {
-			$s1 = $s2rc; $s2 = $seq1; $q1 = $q2rc; $q2 = $qual1;
-    		}
-
-		if ($s2 =~ /($s1)/g) {
-			my $length = length($1);
-			my $start = pos($s2) - $length;
-			my @q1 = split(//,$q1); my @q2 = split(//,$q2);
-
-			my $newq;
+	my $call2 = system("$flashslow $newread1 $newread2 -m 5 -x 0.01 -o $lib");
 		
-			for (my $i = 0; $i < $start; $i++) {
-			    $newq .= $q2[$i];
-				}
-			for (my $i = $start; $i < $length + $start; $i++) {
-			    my $q = calcQ($q1[$i - $start],$q2[$i - $start]);
-	    		$newq .= $q;
-				}
-			for (my $i = $length + $start; $i < length($s2); $i++) {
-			    $newq .= $q2[$i];
-				}
-			
-			print OUTU $id1 . "\n" . $s2 . "\n" . "+\n" . $newq . "\n";	
-    		}
-    	else {
-			my @call = `$global_nw $s1 $s2`;
-			my $a1 = $1 if $call[0]  =~ m/(\S+)/;
-			my $a2 = $1 if $call[1] =~ m/(\S+)/;
-			my $est = calcDiff($a1,$a2);
-			if ($est eq "GOOD") {
-				my @a1 = split(//,$a1);
-				my @oldq1 = split(//,$q1);
-				my @a2 = split(//,$a2);
-				my @oldq2 = split(//,$q2);
-		
-				my (@q1,@q2);
-		
-				my $tracker = 0;
-				for (my $i = 0; $i < scalar(@a1); $i++) {
-					if ($a1[$i] eq '-') {
-						$q1[$i] = '-';
-						}
-					else {
-						$q1[$i] = $oldq1[$tracker];
-						$tracker++;
-						}
-					}	
-				$tracker = 0;	
-				for (my $i = 0; $i < scalar(@a1); $i++) {
-					if ($a2[$i] eq '-') {
-						$q2[$i] = '-';
-						}
-					else {
-						$q2[$i] = $oldq2[$tracker];
-						$tracker++;
-						}
-					}	
-							
-				my ($newseq,$newqual);
-				for (my $i = 0; $i < scalar(@a1); $i++) {
-					if ($a1[$i] eq $a2[$i]) {
-						$newseq .= $a1[$i];
-						my $q = calcQ($q1[$i],$q2[$i]);
-						$newqual .= $q;
-						}
-					elsif ($a1[$i] =~ m/-/) {
-						$newseq .= $a2[$i];
-						$newqual .= $q2[$i];
-						}
-					elsif ($a2[$i] =~ m/-/) {
-						$newseq .= $a1[$i];
-						$newqual .= $q1[$i];
-						}
-					else {
-						if (ord $q1[$i] > ord $q2[$i]) {
-							$newseq .= $a1[$i];
-							$newqual .= $q1[$i];
-							}
-						else {
-							$newseq .= $a2[$i];
-							$newqual .= $q2[$i];
-							}
-						}
-					}
-				print OUTU $id1 . "\n" . $newseq . "\n" . "+\n" . $newqual . "\n";		
-				}
-			else {
-				print OUT1 $id1 . "\n" . $seq1 . "\n" . "+\n" . $qual1 . "\n";
-				print OUT2 $id2 . "\n" . $seq2 . "\n" . "+\n" . $qual2 . "\n";
-				}
-			}	
-		}	
-	close(IN1); close(IN2); close(OUT1); close(OUT2); close(OUTU);
-	my $call2 = system("cat $lib\.copemerged $lib\.slowmerge $reads{'u'} > $newerreadu");
-	my $call3 = system("rm $lib\.copemerged $lib\.slowmerge");
+	my $call3 = system("cat $lib\.copemerged $lib\.extendedFrags.fastq $reads{'u'} > $newerreadu");
+	my $call4 = system("mv $lib\.notCombined_1.fastq $newerread1");
+	my $call5 = system("mv $lib\.notCombined_2.fastq $newerread2");
+	my $call6 = system("rm $lib\.copemerged $lib\.extendedFrags.fastq $lib\.hist*");
 	return(\%newerreads);
    	}
-   	   		
-sub calcQ {
-	my ($a,$b) = @_;
-	$a = ord($a) - 33; $b = ord($b) - 33;
-	my $qual = 10**(-$a/10) * 10**(-$b/10);
-	
-	my $char = int(-log($qual)/log(10))*10+33;
-	if ($char > 74) {
-		$char = 'J';
-	    }
-	else {
-		$char = chr $char;
-	    }
-	return($char);
-	}
-	    	
-sub calcDiff {
-	my ($a1,$a2) = @_;
-	my @a1 = split(//,$a1);
-	my @a2 = split(//,$a2);
-	
-	my $perMatch = 0.05;
-	my $lMatch = 5;
-	
-	my $match; my $mismatch = 0;
-	
-	for (my $i = 0; $i < scalar(@a1); $i++) {
-		unless ($a1[$i] =~ m/-/ || $a2[$i] =~ m/-/) {
-			if ($a1[$i] eq $a2[$i]) {
-				$match++;
-				}
-			else {
-				$mismatch++;
-				}
-			}
-		}
-	
-	my $gap1 = 0; my $gapLength = 0;
-	$gap1++ while $a1 =~ m/([AGCT]-)/g;	
-	$gap1++ while $a1 =~ m/(-[AGCT])/g;	
-	my @gaps = ( $a1 =~ /([AGCTN]+)/g );
-	@gaps = sort {length($b) <=> length($a)} @gaps;
-	$gapLength = length($gaps[0]);
-		
-	my $good = 'BAD';
-	
-	if ($match > 5) {
-		if ($mismatch / ($mismatch + $match) < 0.05) {
-			if ($gap1 < 3 ) {
-				$good = 'GOOD';
-				}
-			elsif ($gapLength / ($match + $mismatch) > 0.9) {
-				$good = 'GOOD';
-				}
-			}
-		}	
-	return($good);
-	}	
-
-
-sub nw {
-	my ($seq1,$seq2) = @_;
-	# scoring scheme
-	my $MATCH    =  1; # +1 for letters that match
-	my $MISMATCH = -1; # -1 for letters that mismatch
-	my $GAP      = -10; # -1 for any gap
-
-	# initialization
-	my @matrix;
-	$matrix[0][0]{score}   = 0;
-	$matrix[0][0]{pointer} = "none";
-
-	for(my $j = 1; $j <= length($seq1); $j++) {
-	    $matrix[0][$j]{score}   = $GAP * $j;
-	    $matrix[0][$j]{pointer} = "left";
-		}
-	for (my $i = 1; $i <= length($seq2); $i++) {
-	    $matrix[$i][0]{score}   = $GAP * $i;
-	    $matrix[$i][0]{pointer} = "up";
-		}
-
-	my @seq1 = split(//,$seq1);
-	my @seq2 = split(//,$seq2);
-	
-	# fill
-	for(my $i = 1; $i <= length($seq2); $i++) {
-    	for(my $j = 1; $j <= length($seq1); $j++) {
-    	    my ($diagonal_score, $left_score, $up_score);
-
-    	    # calculate match score
-    	    my $letter1 = $seq1[$j-1];
-    	    my $letter2 = $seq2[$i-1];                            
-    	    if ($letter1 eq $letter2) {
-    	        $diagonal_score = $matrix[$i-1][$j-1]{score} + $MATCH;
-    	        }
-    	    else {
-    	        $diagonal_score = $matrix[$i-1][$j-1]{score} + $MISMATCH;
-    	        }
-
-    	    # calculate gap scores
-    	    $up_score   = $matrix[$i-1][$j]{score} + $GAP;
-    	    $left_score = $matrix[$i][$j-1]{score} + $GAP;
-
-			# choose best score
-        	if ($diagonal_score >= $up_score) {
-        	    if ($diagonal_score >= $left_score) {
-        	        $matrix[$i][$j]{score}   = $diagonal_score;
-        	        $matrix[$i][$j]{pointer} = "diagonal";
-        	    	}
-        	    else {
-                	$matrix[$i][$j]{score}   = $left_score;
-                	$matrix[$i][$j]{pointer} = "left";
-            		}
-        		} 
-        	else {
-            	if ($up_score >= $left_score) {
-            	    $matrix[$i][$j]{score}   = $up_score;
-            	    $matrix[$i][$j]{pointer} = "up";
-            	    }
-            	else {
-                	$matrix[$i][$j]{score}   = $left_score;
-                	$matrix[$i][$j]{pointer} = "left";
-                	}
-        		}
-    		}
-		}
-
-	# trace-back
-	my $align1 = "";
-	my $align2 = "";
-
-	# start at last cell of matrix
-	my $j = length($seq1);
-	my $i = length($seq2);
-
-	while (1) {
-	    last if $matrix[$i][$j]{pointer} eq "none"; # ends at first cell of matrix
-	
-    	if ($matrix[$i][$j]{pointer} eq "diagonal") {
-    	    $align1 .= $seq1[$j-1];
-    	    $align2 .= $seq2[$i-1];
-    	    $i--;
-    	    $j--;
-    		}
-    	elsif ($matrix[$i][$j]{pointer} eq "left") {
-    		$align1 .= $seq1[$j-1];
-        	$align2 .= "-";
-        	$j--;
-    		}
-    	elsif ($matrix[$i][$j]{pointer} eq "up") {
-        	$align1 .= "-";
-        	$align2 .= $seq2[$i-1];
-        	$i--;
-    		}    
-		}	
-
-	$align1 = reverse $align1;
-	$align2 = reverse $align2;
-	return($align1,$align2);
-	}
 			
 sub fixMatePair {
 	my ($lib,$read,$readarray,$base) = @_;
