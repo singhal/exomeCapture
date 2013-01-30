@@ -57,7 +57,7 @@ foreach my $assembly (@assembly) {
 
 sub cluster {
 	my ($assembly,$out) = @_;
-	my $tmp = 'tmp'
+	my $tmp = 'tmp';
 	my $call1 = system("cd-hit-est -i $assembly -o $tmp -c 0.99 -l $minLength -M $mem -r 1 -B 1");
 	rename($tmp,$out);
 	my $call2 = system("rm $tmp" . "*");
