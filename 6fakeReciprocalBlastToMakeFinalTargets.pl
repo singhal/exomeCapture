@@ -5,7 +5,7 @@
 #                                                                                           #
 # requires blastn & formatdb & cd-hit-est, all in path                                      #              
 #                                                                                           #
-# v 1.5, fixed error in how $perMatch overlap was set                                       #               
+# v 1.6, fixed error in how blast output file is defined                                    #               
 # written by Sonal Singhal, sonal [dot] singhal 1 [at] gmail [dot] com, 23 Jan 2013         #
 #############################################################################################
 
@@ -32,7 +32,7 @@ my $call3 = system("cd-hit-est -i $assembly -o tmp -c $cluster");
 my $call4 = system("mv tmp $assembly");
 my $call5 = system("rm tmp*");
 my $call6 = system("formatdb -i $seqfile -p F");
-my $out = $assembly . "_" . $seqfile . ".out";
+my $out = $assembly . "_" . $1 . ".blast.out" if $seqfile =~ m/\/([^\/]+)$/;
 my $call7 = system("blastn -query $assembly -db $seqfile -out $out -evalue $eval -outfmt 6");
 my $call8 = system("rm formatdb.log");
 
