@@ -11,17 +11,17 @@ my $Slib = $Sdir . 'library';
 my $np = 4;
 
 foreach my $contact (keys %contacts) {
-    my $target = bw($Idir,$contact);
+    my $target = bw($Idir,$contact,$contacts{$contact});
     my ($lib1,$lib2) = readFiles($Slib,$Sdir,$contact,\%contacts);
     my $map1 = mapFiles($contact,$Sdir,$lib1,$target,$np,$Idir);
     my $map2 = mapFiles($contact,$Sdir,$lib2,$target,$np,$Idir);
-#    callVariants($contact,$Idir,$map1,$map2,$target);
+    callVariants($contact,$Idir,$map1,$map2,$target);
 }
 
 sub callVariants {
     my ($contact,$Idir,$map1,$map2,$target) = @_;
     
-    my $outVCF = $Idir . 'ancMapping/' . $contact . '.vcf';
+    my $outVCF = $Idir . 'ancMapping/' . $contact . '_full.vcf';
 
     my $call1 = system("samtools faidx $target");
     my $reads1 = join("\t",@{$map1});
@@ -44,7 +44,7 @@ sub mapFiles {
 
     foreach my $lineage (keys %{$lib}) {
 	foreach my $lib (sort {$a cmp $b} keys %{$lib->{$lineage}}) {
-	    my $final = $outdir . $contact . '_' . $lib . ".sorted.bam";
+	    my $final = $outdir . $contact . '_' . $lib . "_full.sorted.bam";
 	    unless(-f $final) {
 		my $file1 = $indir . $lineage . '/' . $lib . '/' . $lib . '_1p_final.fastq.gz';
 		my $file2 = $file1; $file2 =~ s/1p_/2p_/;
@@ -52,7 +52,7 @@ sub mapFiles {
 
 		my $out1 = $lineage . '_' . $lib . '1';
 		my $out2 = $lineage . '_' . $lib . '2';
-		my $finalout = $outdir . $contact . '_' . $lib . '.sorted';
+		my $finalout = $outdir . $contact . '_' . $lib . '_full.sorted';
 		
 		my $call1 = system("bowtie2 -5 5 -3 5 -p $np -x $target -U $file1,$file2,$fileu -S $out1\.sam --un-gz $out1\.gz");
 		my $call2 = system("bowtie2 -5 5 -3 5 -p $np -x $target -U $out1\.gz -S $out2\.sam --local");
@@ -67,9 +67,7 @@ sub mapFiles {
     }
     return(\@map);
 }
-
     
-
 sub readFiles {
     my ($lib,$dir,$contact,$c) = @_;
     my %lib1; my %lib2;
@@ -91,8 +89,9 @@ sub readFiles {
 }
 
 sub bw {
-    my ($dir,$contact) = @_;
-    my $file = $dir . 'targetSequences/final/' . $contact . '_targets.fa.final';
+    my ($dir,$contact,$hash) = @_;
+    my $file = $Sdir . 'snpTesting/' . $hash->{'1'} . '_' . $hash->{'2'} . ".fa";
+    print $file, "\n";
     unless(-f $file . ".1.bt2") {
 	my $call = system("bowtie2-build $file $file");
     }
